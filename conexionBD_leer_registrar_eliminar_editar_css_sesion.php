@@ -11,6 +11,8 @@
  * Funcion para iniciar la sesión y manejar el login de usuarios.
  */
 session_start();
+
+// Configurar zona horaria de Bogotá, Colombia
 date_default_timezone_set('America/Bogota');
 
 /**
@@ -39,8 +41,8 @@ function registrarInicioSesion($user_id, $session_id) {
     $fecha_inicio = date('Y-m-d H:i:s');
     $hora_inicio = date('H:i:s');
     
-    $sql = "INSERT INTO sesiones_historial (user_id, session_id, fecha_inicio, hora_inicio, activa) 
-            VALUES (?, ?, ?, ?, 1)";
+    $sql = "INSERT INTO sesiones_historial (user_id, session_id, fecha_inicio, hora_inicio) 
+            VALUES (?, ?, ?, ?)";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("isss", $user_id, $session_id, $fecha_inicio, $hora_inicio);
     $stmt->execute();
@@ -58,8 +60,8 @@ function registrarCierreSesion($session_id) {
     $hora_cierre = date('H:i:s');
     
     $sql = "UPDATE sesiones_historial 
-            SET fecha_cierre = ?, hora_cierre = ?, activa = 0 
-            WHERE session_id = ? AND activa = 1";
+            SET fecha_cierre = ?, hora_cierre = ? 
+            WHERE session_id = ? AND fecha_cierre IS NULL";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("sss", $fecha_cierre, $hora_cierre, $session_id);
     $stmt->execute();
@@ -74,7 +76,7 @@ function registrarCierreSesion($session_id) {
  */
 function existeSesionActiva($session_id) {
     $conn = conectarBD();
-    $sql = "SELECT id FROM sesiones_historial WHERE session_id = ? AND activa = 1";
+    $sql = "SELECT id FROM sesiones_historial WHERE session_id = ? AND fecha_cierre IS NULL";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("s", $session_id);
     $stmt->execute();

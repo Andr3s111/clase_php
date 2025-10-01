@@ -1,5 +1,6 @@
 <?php
 session_start();
+date_default_timezone_set('America/Bogota');
 
 // Función para conectar a la base de datos
 function conectarBD() {
@@ -21,8 +22,8 @@ function registrarCierreSesion($session_id) {
     $hora_cierre = date('H:i:s');
     
     $sql = "UPDATE sesiones_historial 
-            SET fecha_cierre = ?, hora_cierre = ?, activa = 0 
-            WHERE session_id = ? AND activa = 1";
+            SET fecha_cierre = ?, hora_cierre = ?
+            WHERE session_id = ? AND fecha_cierre IS NULL";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("sss", $fecha_cierre, $hora_cierre, $session_id);
     $stmt->execute();
@@ -36,8 +37,8 @@ function registrarInicioSesion($user_id, $session_id) {
     $fecha_inicio = date('Y-m-d H:i:s');
     $hora_inicio = date('H:i:s');
     
-    $sql = "INSERT INTO sesiones_historial (user_id, session_id, fecha_inicio, hora_inicio, activa) 
-            VALUES (?, ?, ?, ?, 1)";
+    $sql = "INSERT INTO sesiones_historial (user_id, session_id, fecha_inicio, hora_inicio) 
+            VALUES (?, ?, ?, ?)";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("isss", $user_id, $session_id, $fecha_inicio, $hora_inicio);
     $stmt->execute();
@@ -73,7 +74,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
         
-        // Generar un session_id personalizado
+        // Generar un session_id personalizado (16 caracteres)
         $_SESSION['custom_session_id'] = bin2hex(random_bytes(8));
         
         // Registrar el inicio de sesión con el session_id personalizado
