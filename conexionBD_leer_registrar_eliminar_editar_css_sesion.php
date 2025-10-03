@@ -34,17 +34,18 @@ function conectarBD() {
 /**
  * Registra el inicio de sesión en el historial
  * @param int $user_id ID del usuario
+ * @param string $username Nombre del usuario
  * @param string $session_id ID de la sesión PHP
  */
-function registrarInicioSesion($user_id, $session_id) {
+function registrarInicioSesion($user_id, $username, $session_id) {
     $conn = conectarBD();
     $fecha_inicio = date('Y-m-d H:i:s');
     $hora_inicio = date('H:i:s');
     
-    $sql = "INSERT INTO sesiones_historial (user_id, session_id, fecha_inicio, hora_inicio) 
-            VALUES (?, ?, ?, ?)";
+    $sql = "INSERT INTO log_sistema (user_id, username, session_id, fecha_inicio, hora_inicio) 
+            VALUES (?, ?, ?, ?, ?)";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("isss", $user_id, $session_id, $fecha_inicio, $hora_inicio);
+    $stmt->bind_param("issss", $user_id, $username, $session_id, $fecha_inicio, $hora_inicio);
     $stmt->execute();
     $stmt->close();
     $conn->close();
@@ -59,7 +60,7 @@ function registrarCierreSesion($session_id) {
     $fecha_cierre = date('Y-m-d H:i:s');
     $hora_cierre = date('H:i:s');
     
-    $sql = "UPDATE sesiones_historial 
+    $sql = "UPDATE log_sistema 
             SET fecha_cierre = ?, hora_cierre = ? 
             WHERE session_id = ? AND fecha_cierre IS NULL";
     $stmt = $conn->prepare($sql);
@@ -76,7 +77,7 @@ function registrarCierreSesion($session_id) {
  */
 function existeSesionActiva($session_id) {
     $conn = conectarBD();
-    $sql = "SELECT id FROM sesiones_historial WHERE session_id = ? AND fecha_cierre IS NULL";
+    $sql = "SELECT id FROM log_sistema WHERE session_id = ? AND fecha_cierre IS NULL";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("s", $session_id);
     $stmt->execute();
@@ -87,18 +88,13 @@ function existeSesionActiva($session_id) {
     return $existe;
 }
 
-// Generar un session_id personalizado si no existe (16 caracteres)
+// Registrar inicio de sesión usando session_id() nativo de PHP
 if (isset($_SESSION['user_id']) && isset($_SESSION['username'])) {
-    // Si no existe un session_id personalizado, generarlo
-    if (!isset($_SESSION['custom_session_id'])) {
-        $_SESSION['custom_session_id'] = bin2hex(random_bytes(8)); // 8 bytes = 16 caracteres hex
-    }
-    
-    $session_id_actual = $_SESSION['custom_session_id'];
+    $session_id_actual = session_id();
     
     // Registrar inicio de sesión si no existe
     if (!existeSesionActiva($session_id_actual)) {
-        registrarInicioSesion($_SESSION['user_id'], $session_id_actual);
+        registrarInicioSesion($_SESSION['user_id'], $_SESSION['username'], $session_id_actual);
     }
 }
 
@@ -119,6 +115,7 @@ function consultarBD() {
     return $result;
 }
 $result = consultarBD();
+
 
 //Sirve para cargar los datos de un usuario específico 
 //cuando presionas el botón "Editar" en la tabla.
@@ -143,8 +140,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['editar_id'])) {
                 <?php
                 echo "User Id: " . $_SESSION['user_id'];
                 $nombreSession = session_name();
-                $idSession = isset($_SESSION['custom_session_id']) ? $_SESSION['custom_session_id'] : session_id();
-                echo " | Session Name: " . $nombreSession . " | Session Id: " . $idSession . " |";
+                $idSession = session_id();
+                echo " |  Session Name: " . $nombreSession . "  |   Session Id: " . $idSession . "  |";
                 ?>
                Bienvenido, <?php echo htmlspecialchars($_SESSION['username']); ?> | 
                 <a href="login.php?logout">Cerrar sesión</a>
@@ -168,6 +165,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['editar_id'])) {
             </div>
         </form>
 </div>
+
 
 <?php
 
@@ -239,6 +237,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['actualizar']) && isset
     $result = consultarBD();
 }
 
+
 /**
  * Funcion para eliminar un usuario por ID.
  * @param int $id El ID del usuario a eliminar.
@@ -304,7 +303,7 @@ $result = consultarBD();
 <table border="1" cellpadding="5" cellspacing="0" style="margin-top:20px; width:100%;">
     <thead>
         <tr>
-            <th>ID</th>
+            <th>ID Usuario</th>
             <th>Usuario</th>
             <th>Session ID</th>
             <th>Fecha Inicio</th>
@@ -316,11 +315,10 @@ $result = consultarBD();
     <tbody>
         <?php
         $conn = conectarBD();
-        $sql = "SELECT sh.user_id, sh.session_id, sh.fecha_inicio, sh.hora_inicio, 
-                       sh.fecha_cierre, sh.hora_cierre, lu.username 
-                FROM sesiones_historial sh 
-                INNER JOIN login_user lu ON sh.user_id = lu.id 
-                ORDER BY sh.fecha_inicio DESC 
+        $sql = "SELECT user_id, username, session_id, fecha_inicio, hora_inicio, 
+                       fecha_cierre, hora_cierre
+                FROM log_sistema 
+                ORDER BY fecha_inicio DESC 
                 LIMIT 50";
         $result_sesiones = $conn->query($sql);
         
@@ -329,7 +327,7 @@ $result = consultarBD();
                 <tr>
                     <td><?php echo htmlspecialchars($row['user_id']); ?></td>
                     <td><?php echo htmlspecialchars($row['username']); ?></td>
-                    <td style="font-size: 12px;"><?php echo htmlspecialchars($row['session_id']); ?></td>
+                    <td style="font-size: 11px;"><?php echo htmlspecialchars($row['session_id']); ?></td>
                     <td><?php echo date('Y-m-d', strtotime($row['fecha_inicio'])); ?></td>
                     <td><?php echo htmlspecialchars($row['hora_inicio']); ?></td>
                     <td><?php echo $row['fecha_cierre'] ? date('Y-m-d', strtotime($row['fecha_cierre'])) : '<em>-</em>'; ?></td>

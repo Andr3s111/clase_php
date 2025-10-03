@@ -21,7 +21,7 @@ function registrarCierreSesion($session_id) {
     $fecha_cierre = date('Y-m-d H:i:s');
     $hora_cierre = date('H:i:s');
     
-    $sql = "UPDATE sesiones_historial 
+    $sql = "UPDATE log_sistema 
             SET fecha_cierre = ?, hora_cierre = ?
             WHERE session_id = ? AND fecha_cierre IS NULL";
     $stmt = $conn->prepare($sql);
@@ -32,15 +32,15 @@ function registrarCierreSesion($session_id) {
 }
 
 // Función para registrar inicio de sesión
-function registrarInicioSesion($user_id, $session_id) {
+function registrarInicioSesion($user_id, $username, $session_id) {
     $conn = conectarBD();
     $fecha_inicio = date('Y-m-d H:i:s');
     $hora_inicio = date('H:i:s');
     
-    $sql = "INSERT INTO sesiones_historial (user_id, session_id, fecha_inicio, hora_inicio) 
-            VALUES (?, ?, ?, ?)";
+    $sql = "INSERT INTO log_sistema (user_id, username, session_id, fecha_inicio, hora_inicio) 
+            VALUES (?, ?, ?, ?, ?)";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("isss", $user_id, $session_id, $fecha_inicio, $hora_inicio);
+    $stmt->bind_param("issss", $user_id, $username, $session_id, $fecha_inicio, $hora_inicio);
     $stmt->execute();
     $stmt->close();
     $conn->close();
@@ -48,9 +48,9 @@ function registrarInicioSesion($user_id, $session_id) {
 
 // Manejo del logout
 if (isset($_GET['logout'])) {
-    // Registrar el cierre de sesión antes de destruir la sesión
-    if (isset($_SESSION['user_id']) && isset($_SESSION['custom_session_id'])) {
-        registrarCierreSesion($_SESSION['custom_session_id']);
+    if (isset($_SESSION['user_id'])) {
+        $current_session_id = session_id();
+        registrarCierreSesion($current_session_id);
     }
     session_destroy();
     header("Location: login.php");
@@ -74,11 +74,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
         
-        // Generar un session_id personalizado (16 caracteres)
-        $_SESSION['custom_session_id'] = bin2hex(random_bytes(8));
-        
-        // Registrar el inicio de sesión con el session_id personalizado
-        registrarInicioSesion($user['id'], $_SESSION['custom_session_id']);
+        // Registrar el inicio de sesión con session_id() nativo de PHP
+        registrarInicioSesion($user['id'], $user['username'], session_id());
         
         header("Location: conexionBD_leer_registrar_eliminar_editar_css_sesion.php");
         exit();
